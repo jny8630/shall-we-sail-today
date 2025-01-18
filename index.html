@@ -24,7 +24,7 @@
 
         .main-content {
             flex: 1;
-            max-width: 1200px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 2rem;
         }
@@ -37,17 +37,30 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        .chart-container {
-            width: 100%;
-            margin: 1rem 0;
-            min-height: 450px; /* Increased height for NOAA charts */
+        .wind-data {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin-top: 1rem;
         }
 
-        .chart-frame {
-            width: 100%;
-            height: 450px;
-            border: none;
-            overflow: hidden;
+        .wind-value {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #003366;
+            margin: 0.5rem 0;
+        }
+
+        .wind-label {
+            font-size: 1.2rem;
+            color: #666;
+        }
+
+        .last-updated {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 1rem;
+            text-align: right;
         }
 
         footer {
@@ -58,28 +71,19 @@
             margin-top: auto;
         }
 
-        .chart-title {
-            margin-bottom: 1rem;
-            color: #003366;
-            font-size: 1.2em;
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
         }
 
-        @media (max-width: 768px) {
-            .main-content {
-                padding: 1rem;
-            }
-            
-            .conditions-card {
-                padding: 1rem;
-            }
-
-            .chart-container {
-                min-height: 400px;
-            }
-
-            .chart-frame {
-                height: 400px;
-            }
+        .error {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
         }
     </style>
 </head>
@@ -91,58 +95,79 @@
 
     <main class="main-content">
         <div class="conditions-card">
-            <h2>Current Conditions</h2>
-            <div class="chart-container">
-                <div class="chart-title">Latest Meteorological Conditions</div>
-                <iframe class="chart-frame"
-                    src="https://tidesandcurrents.noaa.gov/meteograms.html?id=8530973"
-                    title="Current Meteorological Conditions">
-                </iframe>
+            <h2>Current Wind Conditions</h2>
+            <div id="windData" class="wind-data">
+                <div class="loading">Loading wind conditions...</div>
             </div>
-        </div>
-
-        <div class="conditions-card">
-            <h2>Wind Conditions</h2>
-            <div class="chart-container">
-                <div class="chart-title">Wind Speed and Direction</div>
-                <iframe class="chart-frame"
-                    src="https://tidesandcurrents.noaa.gov/map/embedding/embed.html?id=8530973&type=MetData&sensor=wind"
-                    title="Wind Speed and Direction">
-                </iframe>
-            </div>
-        </div>
-
-        <div class="conditions-card">
-            <h2>Air Temperature and Pressure</h2>
-            <div class="chart-container">
-                <div class="chart-title">Temperature and Barometric Pressure</div>
-                <iframe class="chart-frame"
-                    src="https://tidesandcurrents.noaa.gov/map/embedding/embed.html?id=8530973&type=MetData&sensor=air_pressure&sensor=air_temperature"
-                    title="Temperature and Pressure">
-                </iframe>
-            </div>
+            <div id="lastUpdated" class="last-updated"></div>
         </div>
     </main>
 
     <footer>
-        <p>Data provided by NOAA CO-OPS | <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=8530973" style="color: white;" target="_blank">Station Details</a> | © 2024 Shall We Sail Today</p>
+        <p>Data from NOAA CO-OPS | Station 8530973</p>
     </footer>
 
     <script>
-        // Add event listener to handle iframe loading
-        document.addEventListener('DOMContentLoaded', function() {
-            const frames = document.querySelectorAll('iframe');
-            frames.forEach(frame => {
-                frame.onload = function() {
-                    // Ensure proper loading of NOAA content
-                    frame.style.visibility = 'visible';
-                };
-                frame.onerror = function() {
-                    // Handle loading errors
-                    frame.parentElement.innerHTML = 'Unable to load NOAA data. Please check <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=8530973">station website</a> directly.';
-                };
-            });
-        });
+        const STATION_ID = '8530973';
+
+        function getWindDirection(degrees) {
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
+                              'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const index = Math.round(((degrees %= 360) < 0 ? degrees + 360 : degrees) / 22.5) % 16;
+            return directions[index];
+        }
+
+        async function fetchWindData() {
+            try {
+                const response = await fetch(
+                    `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?` +
+                    `station=${STATION_ID}&product=wind&units=english&time_zone=lst_ldt&format=json&date=latest`
+                );
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+
+                const latest = data.data[0];
+                const windSpeed = parseFloat(latest.s);
+                const windDir = parseInt(latest.d);
+                const windGust = parseFloat(latest.g);
+                const timestamp = new Date(latest.t);
+
+                const windDataHtml = `
+                    <div>
+                        <div class="wind-label">Wind Speed</div>
+                        <div class="wind-value">${windSpeed}</div>
+                        <div class="wind-label">knots</div>
+                        <div class="wind-label">Gusting to ${windGust} knots</div>
+                    </div>
+                    <div>
+                        <div class="wind-label">Wind Direction</div>
+                        <div class="wind-value">${getWindDirection(windDir)}</div>
+                        <div class="wind-label">${windDir}°</div>
+                    </div>
+                `;
+
+                document.getElementById('windData').innerHTML = windDataHtml;
+                document.getElementById('lastUpdated').textContent = 
+                    `Last updated: ${timestamp.toLocaleString()}`;
+
+            } catch (error) {
+                document.getElementById('windData').innerHTML = `
+                    <div class="error">
+                        Error loading wind data. Please try again later.
+                    </div>
+                `;
+                console.error('Error fetching wind data:', error);
+            }
+        }
+
+        // Fetch initial data
+        fetchWindData();
+
+        // Update every 5 minutes
+        setInterval(fetchWindData, 5 * 60 * 1000);
     </script>
 </body>
 </html>
