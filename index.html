@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shall We Sail Today?</title>
+    <title>Shall We Sail Today? - Montauk</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -24,7 +25,7 @@
 
         .main-content {
             flex: 1;
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 2rem;
         }
@@ -37,11 +38,11 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        .answer {
-            font-size: 3rem;
-            text-align: center;
-            margin: 2rem 0;
-            color: #003366;
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin: 1rem 0;
         }
 
         .data-grid {
@@ -65,55 +66,181 @@
             padding: 1rem;
             margin-top: auto;
         }
+
+        .last-updated {
+            text-align: right;
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>
     <header>
         <h1>Shall We Sail Today?</h1>
-        <p>Real-time sailing conditions</p>
+        <p>Montauk, NY - Station 8530973</p>
     </header>
 
     <main class="main-content">
-        <div class="answer" id="mainAnswer">
-            Checking conditions...
-        </div>
-
         <div class="conditions-card">
             <h2>Wind Conditions</h2>
             <div class="data-grid">
                 <div class="data-item">
-                    <h3>Speed</h3>
-                    <p id="windSpeed">Loading...</p>
+                    <h3>Current Wind Speed</h3>
+                    <p id="currentWindSpeed">Loading...</p>
                 </div>
                 <div class="data-item">
-                    <h3>Direction</h3>
-                    <p id="windDirection">Loading...</p>
+                    <h3>Wind Direction</h3>
+                    <p id="currentWindDir">Loading...</p>
+                </div>
+                <div class="data-item">
+                    <h3>Wind Gust</h3>
+                    <p id="currentWindGust">Loading...</p>
                 </div>
             </div>
+            <div class="chart-container">
+                <canvas id="windChart"></canvas>
+            </div>
+            <div class="last-updated" id="windLastUpdated"></div>
         </div>
 
         <div class="conditions-card">
-            <h2>Tide Information</h2>
+            <h2>Air Temperature</h2>
             <div class="data-grid">
                 <div class="data-item">
-                    <h3>Current Tide</h3>
-                    <p id="currentTide">Loading...</p>
-                </div>
-                <div class="data-item">
-                    <h3>Next High/Low</h3>
-                    <p id="nextTide">Loading...</p>
+                    <h3>Current Temperature</h3>
+                    <p id="currentTemp">Loading...</p>
                 </div>
             </div>
+            <div class="chart-container">
+                <canvas id="tempChart"></canvas>
+            </div>
+            <div class="last-updated" id="tempLastUpdated"></div>
+        </div>
+
+        <div class="conditions-card">
+            <h2>Barometric Pressure</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <h3>Current Pressure</h3>
+                    <p id="currentPressure">Loading...</p>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="pressureChart"></canvas>
+            </div>
+            <div class="last-updated" id="pressureLastUpdated"></div>
         </div>
     </main>
 
     <footer>
-        <p>© 2024 Shall We Sail Today</p>
+        <p>Data provided by NOAA CO-OPS API | © 2024 Shall We Sail Today</p>
     </footer>
 
     <script>
-        // Placeholder for our API calls
-        console.log('Website initialized');
+        const STATION_ID = '8530973';
+        const BASE_URL = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
+        
+        // Function to format date for NOAA API
+        function formatDate(date) {
+            return date.toISOString().split('.')[0].replace('T', ' ').slice(0, -3);
+        }
+
+        // Get data for last 24 hours
+        function getTimeRange() {
+            const end = new Date();
+            const start = new Date(end - 24 * 60 * 60 * 1000);
+            return {
+                begin_date: formatDate(start),
+                end_date: formatDate(end)
+            };
+        }
+
+        // Fetch data from NOAA API
+        async function fetchNoaaData(product) {
+            const timeRange = getTimeRange();
+            const url = `${BASE_URL}?station=${STATION_ID}&product=${product}&units=english&time_zone=lst_ldt&format=json&begin_date=${timeRange.begin_date}&end_date=${timeRange.end_date}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                return data.data || [];
+            } catch (error) {
+                console.error(`Error fetching ${product} data:`, error);
+                return [];
+            }
+        }
+
+        // Create a chart
+        function createChart(canvasId, label, data, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => new Date(d.t).toLocaleTimeString()),
+                    datasets: [{
+                        label: label,
+                        data: data.map(d => d.v),
+                        borderColor: color,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxTicksLimit: 8
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update the displays
+        async function updateDisplays() {
+            // Fetch wind data
+            const windData = await fetchNoaaData('wind');
+            if (windData.length > 0) {
+                const latest = windData[windData.length - 1];
+                document.getElementById('currentWindSpeed').textContent = `${latest.s} knots`;
+                document.getElementById('currentWindDir').textContent = `${latest.d}°`;
+                document.getElementById('currentWindGust').textContent = `${latest.g} knots`;
+                document.getElementById('windLastUpdated').textContent = `Last updated: ${new Date(latest.t).toLocaleString()}`;
+                createChart('windChart', 'Wind Speed (knots)', windData.map(d => ({t: d.t, v: d.s})), '#2196F3');
+            }
+
+            // Fetch temperature data
+            const tempData = await fetchNoaaData('air_temperature');
+            if (tempData.length > 0) {
+                const latest = tempData[tempData.length - 1];
+                document.getElementById('currentTemp').textContent = `${latest.v}°F`;
+                document.getElementById('tempLastUpdated').textContent = `Last updated: ${new Date(latest.t).toLocaleString()}`;
+                createChart('tempChart', 'Temperature (°F)', tempData, '#4CAF50');
+            }
+
+            // Fetch pressure data
+            const pressureData = await fetchNoaaData('air_pressure');
+            if (pressureData.length > 0) {
+                const latest = pressureData[pressureData.length - 1];
+                document.getElementById('currentPressure').textContent = `${latest.v} mb`;
+                document.getElementById('pressureLastUpdated').textContent = `Last updated: ${new Date(latest.t).toLocaleString()}`;
+                createChart('pressureChart', 'Pressure (mb)', pressureData, '#FF9800');
+            }
+        }
+
+        // Initial load
+        updateDisplays();
+
+        // Refresh every 5 minutes
+        setInterval(updateDisplays, 5 * 60 * 1000);
     </script>
 </body>
 </html>
