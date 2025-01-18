@@ -87,6 +87,20 @@
             display: block;
         }
 
+        .forecast-detail-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            margin: 1rem 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .forecast-detail-container iframe {
+            border: none;
+            border-radius: 8px;
+        }
+
         .forecast-tabs {
             display: flex;
             gap: 1rem;
@@ -195,6 +209,7 @@
             <div class="forecast-tabs">
                 <button class="forecast-tab active" onclick="switchForecast('nam')">NAM</button>
                 <button class="forecast-tab" onclick="switchForecast('hrrr')">HRRR</button>
+                <button class="forecast-tab" onclick="switchForecast('ecmwf')">ECMWF</button>
             </div>
             <div class="windy-container">
                 <iframe 
@@ -212,7 +227,27 @@
                     src="https://embed.windy.com/embed2.html?lat=40.6553&lon=-74.0634&zoom=11&level=surface&overlay=wind&product=hrrr&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1" 
                     frameborder="0">
                 </iframe>
+                <iframe 
+                    id="ecmwf-forecast"
+                    width="100%" 
+                    height="500" 
+                    src="https://embed.windy.com/embed2.html?lat=40.6553&lon=-74.0634&zoom=11&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1" 
+                    frameborder="0">
+                </iframe>
             </div>
+        </div>
+
+        <div class="conditions-card">
+            <h2>Detailed Wind Forecast</h2>
+            <div class="forecast-detail-container">
+                <iframe 
+                    width="100%" 
+                    height="400" 
+                    src="https://embed.windy.com/embed2.html?lat=40.6553&lon=-74.0634&zoom=11&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=forecast&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1" 
+                    frameborder="0">
+                </iframe>
+            </div>
+        </div>
         </div>
 
         <div class="noaa-links">
