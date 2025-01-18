@@ -38,21 +38,27 @@
         }
 
         .wind-data {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
             margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .wind-section {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
         }
 
         .wind-value {
-            font-size: 3rem;
+            font-size: 2rem;
             font-weight: bold;
             color: #003366;
-            margin: 0.5rem 0;
         }
 
         .wind-label {
-            font-size: 1.2rem;
+            font-size: 1rem;
             color: #666;
         }
 
@@ -61,29 +67,6 @@
             color: #666;
             margin-top: 1rem;
             text-align: right;
-        }
-
-        .wind-trend {
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid #eee;
-        }
-
-        .wind-trend h3 {
-            color: #003366;
-            margin-bottom: 0.5rem;
-        }
-
-        .wind-trend ul {
-            list-style: none;
-            padding: 0;
-            margin: 1rem 0;
-        }
-
-        .wind-trend li {
-            margin: 0.5rem 0;
-            color: #444;
-            font-size: 1.1rem;
         }
 
         footer {
@@ -140,36 +123,13 @@
             return directions[index];
         }
 
-        async function fetchHistoricalWind(hours) {
-            const now = new Date();
-            const begin = new Date(now.getTime() - (hours * 60 * 60 * 1000));
-            const beginStr = begin.toISOString().replace('T', ' ').split('.')[0];
-            const endStr = now.toISOString().replace('T', ' ').split('.')[0];
-            
-            const response = await fetch(
-                `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?` +
-                `station=${STATION_ID}&product=wind&units=english&time_zone=lst_ldt&format=json` +
-                `&begin_date=${beginStr}&end_date=${endStr}&interval=6`
-            );
-            return await response.json();
-        }
-
-        function calculateAverageWind(data, hoursAgo) {
-            const now = new Date();
-            const threshold = new Date(now.getTime() - (hoursAgo * 60 * 60 * 1000));
-            const relevantData = data.filter(reading => new Date(reading.t) >= threshold);
-            const sum = relevantData.reduce((acc, reading) => acc + parseFloat(reading.s), 0);
-            return (sum / relevantData.length).toFixed(1);
-        }
-
         async function fetchWindData() {
             try {
-                // Fetch current conditions
-                const currentResponse = await fetch(
+                const response = await fetch(
                     `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?` +
                     `station=${STATION_ID}&product=wind&units=english&time_zone=lst_ldt&format=json&date=latest`
                 );
-                const currentData = await response.json();
+                const data = await response.json();
 
                 if (data.error) {
                     throw new Error(data.error.message);
@@ -182,46 +142,26 @@
                 const timestamp = new Date(latest.t);
 
                 const windDataHtml = `
-                    <div>
-                        <div class="wind-label">Wind Speed</div>
-                        <div class="wind-value">${windSpeed}</div>
-                        <div class="wind-label">knots</div>
-                        <div class="wind-label">Gusting to ${windGust} knots</div>
+                    <div class="wind-section">
+                        <span class="wind-label">Current:</span>
+                        <span class="wind-value">${windSpeed}</span>
+                        <span class="wind-label">knots</span>
                     </div>
-                    <div>
-                        <div class="wind-label">Wind Direction</div>
-                        <div class="wind-value">${getWindDirection(windDir)}</div>
-                        <div class="wind-label">${windDir}°</div>
+                    <div class="wind-section">
+                        <span class="wind-label">Gusting:</span>
+                        <span class="wind-value">${windGust}</span>
+                        <span class="wind-label">knots</span>
+                    </div>
+                    <div class="wind-section">
+                        <span class="wind-label">Direction:</span>
+                        <span class="wind-value">${getWindDirection(windDir)}</span>
+                        <span class="wind-label">(${windDir}°)</span>
                     </div>
                 `;
 
                 document.getElementById('windData').innerHTML = windDataHtml;
                 document.getElementById('lastUpdated').textContent = 
                     `Last updated: ${timestamp.toLocaleString()}`;
-                
-                // Fetch historical data
-                const historicalData = await fetchHistoricalWind(6);
-                if (historicalData.data) {
-                    const avg6h = calculateAverageWind(historicalData.data, 6);
-                    const avg3h = calculateAverageWind(historicalData.data, 3);
-                    const avg2h = calculateAverageWind(historicalData.data, 2);
-                    const avg1h = calculateAverageWind(historicalData.data, 1);
-
-                    // Add wind trend summary
-                    const trendHtml = `
-                        <div class="wind-trend">
-                            <h3>Wind Speed Trends</h3>
-                            <p>Over the last 6 hours, wind speeds have averaged:</p>
-                            <ul>
-                                <li>Last 6 hours: ${avg6h} knots</li>
-                                <li>Last 3 hours: ${avg3h} knots</li>
-                                <li>Last 2 hours: ${avg2h} knots</li>
-                                <li>Last hour: ${avg1h} knots</li>
-                            </ul>
-                        </div>
-                    `;
-                    document.getElementById('windData').insertAdjacentHTML('afterend', trendHtml);
-                }
 
             } catch (error) {
                 document.getElementById('windData').innerHTML = `
