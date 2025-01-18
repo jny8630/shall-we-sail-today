@@ -37,7 +37,13 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        .wind-data {
+        .card-title {
+            margin: 0 0 1rem 0;
+            color: #003366;
+            font-size: 1.5rem;
+        }
+
+        .wind-data, .tide-data {
             display: flex;
             align-items: center;
             gap: 1.5rem;
@@ -45,19 +51,19 @@
             flex-wrap: wrap;
         }
 
-        .wind-section {
+        .wind-section, .tide-section {
             display: flex;
             align-items: baseline;
             gap: 0.5rem;
         }
 
-        .wind-value {
+        .wind-value, .tide-value {
             font-size: 2rem;
             font-weight: bold;
             color: #003366;
         }
 
-        .wind-label {
+        .wind-label, .tide-label {
             font-size: 1rem;
             color: #666;
         }
@@ -190,12 +196,92 @@
 
     <script>
         const STATION_ID = '8530973';
+        const TIDE_STATION_ID = '8518750';  // The Battery
 
         function getWindDirection(degrees) {
             const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
                               'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
             const index = Math.round(((degrees %= 360) < 0 ? degrees + 360 : degrees) / 22.5) % 16;
             return directions[index];
+        }
+
+        // Function to format prediction time
+        function formatPredictionTime(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        }
+
+        // Function to get today's date in YYYYMMDD format
+        function getTodayDate() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}${month}${day}`;
+        }
+
+        async function fetchTideData() {
+            try {
+                // Fetch current water level
+                const currentResponse = await fetch(
+                    `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?` +
+                    `station=${TIDE_STATION_ID}&product=water_level&datum=MLLW&units=english&time_zone=lst_ldt&format=json&date=latest`
+                );
+                const currentData = await currentResponse.json();
+
+                // Fetch predictions for today
+                const predictionsResponse = await fetch(
+                    `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?` +
+                    `station=${TIDE_STATION_ID}&product=predictions&datum=MLLW&units=english&time_zone=lst_ldt&format=json&date=today&interval=hilo`
+                );
+                const predictionsData = await predictionsResponse.json();
+
+                if (currentData.error || predictionsData.error) {
+                    throw new Error('Error fetching tide data');
+                }
+
+                const current = currentData.data[0];
+                const predictions = predictionsData.predictions;
+                const currentTime = new Date();
+
+                // Find last and next high/low tides
+                const lastTide = predictions.filter(p => new Date(p.t) <= currentTime).pop();
+                const nextTide = predictions.filter(p => new Date(p.t) > currentTime)[0];
+
+                const tideDataHtml = `
+                    <div class="tide-section">
+                        <span class="tide-label">Current:</span>
+                        <span class="tide-value">${parseFloat(current.v).toFixed(1)}</span>
+                        <span class="tide-label">ft</span>
+                    </div>
+                    <div class="tide-section">
+                        <span class="tide-label">Last ${lastTide.type}:</span>
+                        <span class="tide-value">${parseFloat(lastTide.v).toFixed(1)}</span>
+                        <span class="tide-label">ft at ${formatPredictionTime(lastTide.t)}</span>
+                    </div>
+                    <div class="tide-section">
+                        <span class="tide-label">Next ${nextTide.type}:</span>
+                        <span class="tide-value">${parseFloat(nextTide.v).toFixed(1)}</span>
+                        <span class="tide-label">ft at ${formatPredictionTime(nextTide.t)}</span>
+                    </div>
+                `;
+
+                document.getElementById('tideData').innerHTML = tideDataHtml;
+                document.getElementById('tideLastUpdated').textContent = 
+                    `Last updated: ${new Date(current.t).toLocaleString()}`;
+
+            } catch (error) {
+                document.getElementById('tideData').innerHTML = `
+                    <div class="error">
+                        Error loading tide data. Please try again later.
+                    </div>
+                `;
+                console.error('Error fetching tide data:', error);
+            }
         }
 
         async function fetchWindData() {
@@ -250,9 +336,11 @@
 
         // Fetch initial data
         fetchWindData();
+        fetchTideData();
 
         // Update every 5 minutes
         setInterval(fetchWindData, 5 * 60 * 1000);
+        setInterval(fetchTideData, 5 * 60 * 1000);
     </script>
 </body>
 </html>
