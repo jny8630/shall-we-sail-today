@@ -272,13 +272,25 @@
             }
         }
 
-        // Initial load
-        fetchWindData();
-        fetchTideData();
+        async function updateAllData() {
+            // Fetch both wind and tide data
+            await Promise.all([
+                fetchWindData(),
+                fetchTideData()
+            ]);
 
-        // Update every 5 minutes
-        setInterval(fetchWindData, 5 * 60 * 1000);
-        setInterval(fetchTideData, 5 * 60 * 1000);
+            // Schedule next update with slight random offset (0-2 minutes)
+            const randomOffset = Math.floor(Math.random() * 2 * 60 * 1000); // Random milliseconds up to 2 minutes
+            const fiveMinutes = 5 * 60 * 1000;
+            setTimeout(updateAllData, fiveMinutes + randomOffset);
+        }
+
+        // Initial load
+        updateAllData();
+
+        // Remove individual intervals
+        // setInterval(fetchWindData, 5 * 60 * 1000);
+        // setInterval(fetchTideData, 5 * 60 * 1000);
     </script>
 </body>
 </html>
