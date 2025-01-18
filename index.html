@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shall We Sail Today? - Robbins Reef </title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <title>Shall We Sail Today? - Robbins Reef</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -39,24 +38,16 @@
         }
 
         .chart-container {
-            position: relative;
-            height: 300px;
             width: 100%;
             margin: 1rem 0;
+            min-height: 450px; /* Increased height for NOAA charts */
         }
 
-        .data-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin: 1rem 0;
-        }
-
-        .data-item {
-            background: #f5f5f5;
-            padding: 1rem;
-            border-radius: 5px;
-            text-align: center;
+        .chart-frame {
+            width: 100%;
+            height: 450px;
+            border: none;
+            overflow: hidden;
         }
 
         footer {
@@ -67,11 +58,28 @@
             margin-top: auto;
         }
 
-        .last-updated {
-            text-align: right;
-            font-size: 0.9em;
-            color: #666;
-            margin-top: 0.5rem;
+        .chart-title {
+            margin-bottom: 1rem;
+            color: #003366;
+            font-size: 1.2em;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 1rem;
+            }
+            
+            .conditions-card {
+                padding: 1rem;
+            }
+
+            .chart-container {
+                min-height: 400px;
+            }
+
+            .chart-frame {
+                height: 400px;
+            }
         }
     </style>
 </head>
@@ -83,164 +91,58 @@
 
     <main class="main-content">
         <div class="conditions-card">
+            <h2>Current Conditions</h2>
+            <div class="chart-container">
+                <div class="chart-title">Latest Meteorological Conditions</div>
+                <iframe class="chart-frame"
+                    src="https://tidesandcurrents.noaa.gov/meteograms.html?id=8530973"
+                    title="Current Meteorological Conditions">
+                </iframe>
+            </div>
+        </div>
+
+        <div class="conditions-card">
             <h2>Wind Conditions</h2>
-            <div class="data-grid">
-                <div class="data-item">
-                    <h3>Current Wind Speed</h3>
-                    <p id="currentWindSpeed">Loading...</p>
-                </div>
-                <div class="data-item">
-                    <h3>Wind Direction</h3>
-                    <p id="currentWindDir">Loading...</p>
-                </div>
-                <div class="data-item">
-                    <h3>Wind Gust</h3>
-                    <p id="currentWindGust">Loading...</p>
-                </div>
-            </div>
             <div class="chart-container">
-                <canvas id="windChart"></canvas>
+                <div class="chart-title">Wind Speed and Direction</div>
+                <iframe class="chart-frame"
+                    src="https://tidesandcurrents.noaa.gov/map/embedding/embed.html?id=8530973&type=MetData&sensor=wind"
+                    title="Wind Speed and Direction">
+                </iframe>
             </div>
-            <div class="last-updated" id="windLastUpdated"></div>
         </div>
 
         <div class="conditions-card">
-            <h2>Air Temperature</h2>
-            <div class="data-grid">
-                <div class="data-item">
-                    <h3>Current Temperature</h3>
-                    <p id="currentTemp">Loading...</p>
-                </div>
-            </div>
+            <h2>Air Temperature and Pressure</h2>
             <div class="chart-container">
-                <canvas id="tempChart"></canvas>
+                <div class="chart-title">Temperature and Barometric Pressure</div>
+                <iframe class="chart-frame"
+                    src="https://tidesandcurrents.noaa.gov/map/embedding/embed.html?id=8530973&type=MetData&sensor=air_pressure&sensor=air_temperature"
+                    title="Temperature and Pressure">
+                </iframe>
             </div>
-            <div class="last-updated" id="tempLastUpdated"></div>
-        </div>
-
-        <div class="conditions-card">
-            <h2>Barometric Pressure</h2>
-            <div class="data-grid">
-                <div class="data-item">
-                    <h3>Current Pressure</h3>
-                    <p id="currentPressure">Loading...</p>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="pressureChart"></canvas>
-            </div>
-            <div class="last-updated" id="pressureLastUpdated"></div>
         </div>
     </main>
 
     <footer>
-        <p>Data provided by NOAA CO-OPS API | © 2024 Shall We Sail Today</p>
+        <p>Data provided by NOAA CO-OPS | <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=8530973" style="color: white;" target="_blank">Station Details</a> | © 2024 Shall We Sail Today</p>
     </footer>
 
     <script>
-        const STATION_ID = '8530973';
-        const BASE_URL = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
-        
-        // Function to format date for NOAA API
-        function formatDate(date) {
-            return date.toISOString().split('.')[0].replace('T', ' ').slice(0, -3);
-        }
-
-        // Get data for last 24 hours
-        function getTimeRange() {
-            const end = new Date();
-            const start = new Date(end - 24 * 60 * 60 * 1000);
-            return {
-                begin_date: formatDate(start),
-                end_date: formatDate(end)
-            };
-        }
-
-        // Fetch data from NOAA API
-        async function fetchNoaaData(product) {
-            const timeRange = getTimeRange();
-            const url = `${BASE_URL}?station=${STATION_ID}&product=${product}&units=english&time_zone=lst_ldt&format=json&begin_date=${timeRange.begin_date}&end_date=${timeRange.end_date}`;
-            
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                return data.data || [];
-            } catch (error) {
-                console.error(`Error fetching ${product} data:`, error);
-                return [];
-            }
-        }
-
-        // Create a chart
-        function createChart(canvasId, label, data, color) {
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            return new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.map(d => new Date(d.t).toLocaleTimeString()),
-                    datasets: [{
-                        label: label,
-                        data: data.map(d => d.v),
-                        borderColor: color,
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                maxTicksLimit: 8
-                            }
-                        }
-                    }
-                }
+        // Add event listener to handle iframe loading
+        document.addEventListener('DOMContentLoaded', function() {
+            const frames = document.querySelectorAll('iframe');
+            frames.forEach(frame => {
+                frame.onload = function() {
+                    // Ensure proper loading of NOAA content
+                    frame.style.visibility = 'visible';
+                };
+                frame.onerror = function() {
+                    // Handle loading errors
+                    frame.parentElement.innerHTML = 'Unable to load NOAA data. Please check <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=8530973">station website</a> directly.';
+                };
             });
-        }
-
-        // Update the displays
-        async function updateDisplays() {
-            // Fetch wind data
-            const windData = await fetchNoaaData('wind');
-            if (windData.length > 0) {
-                const latest = windData[windData.length - 1];
-                document.getElementById('currentWindSpeed').textContent = `${latest.s} knots`;
-                document.getElementById('currentWindDir').textContent = `${latest.d}°`;
-                document.getElementById('currentWindGust').textContent = `${latest.g} knots`;
-                document.getElementById('windLastUpdated').textContent = `Last updated: ${new Date(latest.t).toLocaleString()}`;
-                createChart('windChart', 'Wind Speed (knots)', windData.map(d => ({t: d.t, v: d.s})), '#2196F3');
-            }
-
-            // Fetch temperature data
-            const tempData = await fetchNoaaData('air_temperature');
-            if (tempData.length > 0) {
-                const latest = tempData[tempData.length - 1];
-                document.getElementById('currentTemp').textContent = `${latest.v}°F`;
-                document.getElementById('tempLastUpdated').textContent = `Last updated: ${new Date(latest.t).toLocaleString()}`;
-                createChart('tempChart', 'Temperature (°F)', tempData, '#4CAF50');
-            }
-
-            // Fetch pressure data
-            const pressureData = await fetchNoaaData('air_pressure');
-            if (pressureData.length > 0) {
-                const latest = pressureData[pressureData.length - 1];
-                document.getElementById('currentPressure').textContent = `${latest.v} mb`;
-                document.getElementById('pressureLastUpdated').textContent = `Last updated: ${new Date(latest.t).toLocaleString()}`;
-                createChart('pressureChart', 'Pressure (mb)', pressureData, '#FF9800');
-            }
-        }
-
-        // Initial load
-        updateDisplays();
-
-        // Refresh every 5 minutes
-        setInterval(updateDisplays, 5 * 60 * 1000);
+        });
     </script>
 </body>
 </html>
