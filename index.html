@@ -388,13 +388,15 @@
                 const lastLow = pastTides.find(p => p.type === 'L');
                 const nextTides = futureTides.slice(0, 2);
 
+
                 const tideInfo = [
-                    lastHigh ? `Last <strong>high</strong> tide was at <span class="tide-time">${formatTime(lastHigh.t)}</span>` : null,
-                    lastLow ? `Last <strong>low</strong> tide was at <span class="tide-time">${formatTime(lastLow.t)}</span>` : null,
+                    lastHigh ? `Last <strong>high</strong> tide was at <span class="tide-time">${formatTime(lastHigh.t)}</span> (${lastHigh.v.toFixed(1)} ft)` : null,
+                    lastLow ? `Last <strong>low</strong> tide was at <span class="tide-time">${formatTime(lastLow.t)}</span> (${lastLow.v.toFixed(1)} ft)` : null,
                     ...nextTides.map(tide => 
-                        `Next <strong>${tide.type === 'H' ? 'high' : 'low'}</strong> tide is at <span class="tide-time">${formatTime(tide.t)}</span>`
+                        `Next <strong>${tide.type === 'H' ? 'high' : 'low'}</strong> tide is at <span class="tide-time">${formatTime(tide.t)}</span> (${tide.v.toFixed(1)} ft)`
                     )
                 ].filter(Boolean).join(';<br>');
+
 
                 document.getElementById('tideInfo').innerHTML = tideInfo + ';';
                 document.getElementById('tideLastUpdated').textContent = 
