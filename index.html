@@ -37,12 +37,6 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        .card-title {
-            margin: 0 0 1rem 0;
-            color: #003366;
-            font-size: 1.5rem;
-        }
-
         .wind-data, .tide-data {
             display: flex;
             align-items: center;
@@ -58,7 +52,7 @@
         }
 
         .wind-value, .tide-value {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: bold;
             color: #003366;
         }
@@ -73,29 +67,6 @@
             color: #666;
             margin-top: 1rem;
             text-align: right;
-        }
-
-        footer {
-            background: #003366;
-            color: white;
-            text-align: center;
-            padding: 1rem;
-            margin-top: auto;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #666;
-        }
-
-        .error {
-            background: #fee2e2;
-            border: 1px solid #ef4444;
-            color: #dc2626;
-            padding: 1rem;
-            border-radius: 8px;
-            margin: 1rem 0;
         }
 
         .chart-container {
@@ -117,7 +88,6 @@
 
         .chart-img {
             width: 100%;
-            max-width: 100%;
             height: auto;
             display: block;
         }
@@ -137,6 +107,17 @@
         .noaa-link:hover {
             background: #004480;
         }
+
+        .tide-info {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .tide-time {
+            font-weight: bold;
+            color: #003366;
+        }
     </style>
 </head>
 <body>
@@ -152,41 +133,52 @@
                 <div class="loading">Loading wind conditions...</div>
             </div>
             <div id="lastUpdated" class="last-updated"></div>
+        </div>
 
-            <div class="chart-container">
-                <div class="chart-wrapper">
-                    <h3>Wind Speed and Direction (Last 24 Hours)</h3>
-                    <img 
-                        class="chart-img" 
-                        src="https://tidesandcurrents.noaa.gov/api/datagetter?product=wind&application=web_services&units=english&time_zone=lst&format=plot&interval=h&begin_date=today&range=24&station=8530973"
-                        alt="Wind speed and direction chart"
-                    />
-                </div>
-
-                <div class="chart-wrapper">
-                    <h3>Air Temperature (Last 24 Hours)</h3>
-                    <img 
-                        class="chart-img" 
-                        src="https://tidesandcurrents.noaa.gov/api/datagetter?product=air_temperature&application=web_services&units=english&time_zone=lst&format=plot&interval=h&begin_date=today&range=24&station=8530973"
-                        alt="Air temperature chart"
-                    />
-                </div>
-
-                <div class="chart-wrapper">
-                    <h3>Barometric Pressure (Last 24 Hours)</h3>
-                    <img 
-                        class="chart-img" 
-                        src="https://tidesandcurrents.noaa.gov/api/datagetter?product=air_pressure&application=web_services&units=english&time_zone=lst&format=plot&interval=h&begin_date=today&range=24&station=8530973"
-                        alt="Barometric pressure chart"
-                    />
-                </div>
-
-                <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=8530973" 
-                   target="_blank" 
-                   class="noaa-link">
-                    View Live Data at NOAA Station Page →
-                </a>
+        <div class="conditions-card">
+            <h2>Tide Information at The Battery</h2>
+            <div id="tideInfo" class="tide-info">
+                Loading tide information...
             </div>
+            <div id="tideLastUpdated" class="last-updated"></div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-wrapper">
+                <h3>Wind Speed and Direction (Last 24 Hours)</h3>
+                <img 
+                    id="windChart"
+                    class="chart-img" 
+                    src="" 
+                    alt="Wind speed and direction chart"
+                />
+            </div>
+
+            <div class="chart-wrapper">
+                <h3>Air Temperature (Last 24 Hours)</h3>
+                <img 
+                    id="tempChart"
+                    class="chart-img" 
+                    src="" 
+                    alt="Air temperature chart"
+                />
+            </div>
+
+            <div class="chart-wrapper">
+                <h3>Barometric Pressure (Last 24 Hours)</h3>
+                <img 
+                    id="pressureChart"
+                    class="chart-img" 
+                    src="" 
+                    alt="Barometric pressure chart"
+                />
+            </div>
+
+            <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=8530973" 
+               target="_blank" 
+               class="noaa-link">
+                View Live Data at NOAA Station Page →
+            </a>
         </div>
     </main>
 
@@ -205,81 +197,69 @@
             return directions[index];
         }
 
-        // Function to format prediction time
-        function formatPredictionTime(dateStr) {
+        function formatTideDateTime(dateStr) {
             const date = new Date(dateStr);
-            return date.toLocaleTimeString('en-US', { 
-                hour: 'numeric', 
+            return date.toLocaleString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                hour: 'numeric',
                 minute: '2-digit',
-                hour12: true 
+                hour12: true
             });
         }
 
-        // Function to get today's date in YYYYMMDD format
-        function getTodayDate() {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            return `${year}${month}${day}`;
+        async function updateCharts() {
+            const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+            
+            const windChartUrl = `https://tidesandcurrents.noaa.gov/api/datagetter?` +
+                `station=${STATION_ID}&product=wind&application=NOS.COOPS.TAC.WL&units=english&time_zone=lst&format=png&datum=MLLW&interval=h&bin=1&begin_date=${today}&range=24`;
+            
+            const tempChartUrl = `https://tidesandcurrents.noaa.gov/api/datagetter?` +
+                `station=${STATION_ID}&product=air_temperature&application=NOS.COOPS.TAC.WL&units=english&time_zone=lst&format=png&datum=MLLW&interval=h&bin=1&begin_date=${today}&range=24`;
+            
+            const pressureChartUrl = `https://tidesandcurrents.noaa.gov/api/datagetter?` +
+                `station=${STATION_ID}&product=air_pressure&application=NOS.COOPS.TAC.WL&units=english&time_zone=lst&format=png&datum=MLLW&interval=h&bin=1&begin_date=${today}&range=24`;
+
+            document.getElementById('windChart').src = windChartUrl;
+            document.getElementById('tempChart').src = tempChartUrl;
+            document.getElementById('pressureChart').src = pressureChartUrl;
         }
 
         async function fetchTideData() {
             try {
-                // Fetch current water level
-                const currentResponse = await fetch(
-                    `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?` +
-                    `station=${TIDE_STATION_ID}&product=water_level&datum=MLLW&units=english&time_zone=lst_ldt&format=json&date=latest`
-                );
-                const currentData = await currentResponse.json();
-
-                // Fetch predictions for today
-                const predictionsResponse = await fetch(
+                const response = await fetch(
                     `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?` +
                     `station=${TIDE_STATION_ID}&product=predictions&datum=MLLW&units=english&time_zone=lst_ldt&format=json&date=today&interval=hilo`
                 );
-                const predictionsData = await predictionsResponse.json();
+                const data = await response.json();
 
-                if (currentData.error || predictionsData.error) {
-                    throw new Error('Error fetching tide data');
+                if (data.error) {
+                    throw new Error(data.error.message);
                 }
 
-                const current = currentData.data[0];
-                const predictions = predictionsData.predictions;
+                const predictions = data.predictions;
                 const currentTime = new Date();
-
-                // Find last and next high/low tides
+                
+                // Find next tides
+                const upcomingTides = predictions.filter(p => new Date(p.t) > currentTime);
                 const lastTide = predictions.filter(p => new Date(p.t) <= currentTime).pop();
-                const nextTide = predictions.filter(p => new Date(p.t) > currentTime)[0];
+                const nextTide = upcomingTides[0];
+                const nextNextTide = upcomingTides[1];
 
-                const tideDataHtml = `
-                    <div class="tide-section">
-                        <span class="tide-label">Current:</span>
-                        <span class="tide-value">${parseFloat(current.v).toFixed(1)}</span>
-                        <span class="tide-label">ft</span>
-                    </div>
-                    <div class="tide-section">
-                        <span class="tide-label">Last ${lastTide.type}:</span>
-                        <span class="tide-value">${parseFloat(lastTide.v).toFixed(1)}</span>
-                        <span class="tide-label">ft at ${formatPredictionTime(lastTide.t)}</span>
-                    </div>
-                    <div class="tide-section">
-                        <span class="tide-label">Next ${nextTide.type}:</span>
-                        <span class="tide-value">${parseFloat(nextTide.v).toFixed(1)}</span>
-                        <span class="tide-label">ft at ${formatPredictionTime(nextTide.t)}</span>
-                    </div>
+                const tideInfo = `
+                    Last <strong>${lastTide.type}</strong> tide was at <span class="tide-time">${formatTideDateTime(lastTide.t)}</span>;<br>
+                    Next <strong>${nextTide.type}</strong> tide is at <span class="tide-time">${formatTideDateTime(nextTide.t)}</span>;<br>
+                    Next <strong>${nextNextTide.type}</strong> tide is at <span class="tide-time">${formatTideDateTime(nextNextTide.t)}</span>
                 `;
 
-                document.getElementById('tideData').innerHTML = tideDataHtml;
+                document.getElementById('tideInfo').innerHTML = tideInfo;
                 document.getElementById('tideLastUpdated').textContent = 
-                    `Last updated: ${new Date(current.t).toLocaleString()}`;
+                    `Last updated: ${new Date().toLocaleString()}`;
 
             } catch (error) {
-                document.getElementById('tideData').innerHTML = `
-                    <div class="error">
-                        Error loading tide data. Please try again later.
-                    </div>
-                `;
+                document.getElementById('tideInfo').innerHTML = 
+                    `<div class="error">Error loading tide data. Please try again later.</div>`;
                 console.error('Error fetching tide data:', error);
             }
         }
@@ -326,21 +306,21 @@
 
             } catch (error) {
                 document.getElementById('windData').innerHTML = `
-                    <div class="error">
-                        Error loading wind data. Please try again later.
-                    </div>
+                    <div class="error">Error loading wind data. Please try again later.</div>
                 `;
                 console.error('Error fetching wind data:', error);
             }
         }
 
-        // Fetch initial data
+        // Initial load
         fetchWindData();
         fetchTideData();
+        updateCharts();
 
         // Update every 5 minutes
         setInterval(fetchWindData, 5 * 60 * 1000);
         setInterval(fetchTideData, 5 * 60 * 1000);
+        setInterval(updateCharts, 5 * 60 * 1000);
     </script>
 </body>
 </html>
