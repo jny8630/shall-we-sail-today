@@ -363,53 +363,56 @@
         }
 
         async function fetchTideData() {
-            try {
-                const response = await fetch(
-                    `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?` +
-                    `station=${TIDE_STATION_ID}&product=predictions&datum=MLLW&units=english&time_zone=lst_ldt&format=json&date=today&interval=hilo`
-                );
-                const data = await response.json();
+    try {
+        const response = await fetch(
+            `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?` +
+            `station=${TIDE_STATION_ID}&product=predictions&datum=MLLW&units=english&time_zone=lst_ldt&format=json&date=today&interval=hilo`
+        );
+        const data = await response.json();
 
-                if (data.error) {
-                    throw new Error(data.error.message);
-                }
-
-                if (!data.predictions || data.predictions.length === 0) {
-                    throw new Error('No tide predictions available');
-                }
-
-                const currentTime = new Date();
-                const predictions = data.predictions;
-                
-                const pastTides = predictions.filter(p => new Date(p.t) <= currentTime);
-                const futureTides = predictions.filter(p => new Date(p.t) > currentTime);
-                
-                const lastHigh = pastTides.find(p => p.type === 'H');
-                const lastLow = pastTides.find(p => p.type === 'L');
-                const nextTides = futureTides.slice(0, 2);
-
-
-
-                const tideInfo = [
-                    lastHigh ? `Last <strong>high</strong> tide was at <span class="tide-time">${formatTime(lastHigh.t)}</span> (${lastHigh.v ? lastHigh.v.toFixed(1) : 'N/A'} ft)` : null,
-                    lastLow ? `Last <strong>low</strong> tide was at <span class="tide-time">${formatTime(lastLow.t)}</span> (${lastLow.v ? lastLow.v.toFixed(1) : 'N/A'} ft)` : null,
-                    ...nextTides.map(tide => 
-                        `Next <strong>${tide.type === 'H' ? 'high' : 'low'}</strong> tide is at <span class="tide-time">${formatTime(tide.t)}</span> (${tide.v ? tide.v.toFixed(1) : 'N/A'} ft)`
-                    )
-                ].filter(Boolean).join(';<br>');
-
-
-                document.getElementById('tideInfo').innerHTML = tideInfo + ';';
-                document.getElementById('tideLastUpdated').textContent = 
-                    `Last updated: ${formatTime(new Date())}`;
-
-            } catch (error) {
-                document.getElementById('tideInfo').innerHTML = 
-                    `<div class="error">Error loading tide data: ${error.message}</div>`;
-                console.error('Error fetching tide data:', error);
-            }
+        if (data.error) {
+            throw new Error(data.error.message);
         }
 
+        if (!data.predictions || data.predictions.length === 0) {
+            throw new Error('No tide predictions available');
+        }
+
+        const currentTime = new Date();
+        const predictions = data.predictions;
+
+        const pastTides = predictions.filter(p => new Date(p.t) <= currentTime);
+        const futureTides = predictions.filter(p => new Date(p.t) > currentTime);
+
+        const lastHigh = pastTides.find(p => p.type === 'H');
+        const lastLow = pastTides.find(p => p.type === 'L');
+        const nextTides = futureTides.slice(0, 2);
+
+        let tideInfo = '';
+
+        if (lastHigh) {
+            tideInfo += `Last <strong>high</strong> tide was at <span class="tide-time">${formatTime(lastHigh.t)}</span> (${lastHigh.v.toFixed(1)} ft);<br>`;
+        }
+
+        if (lastLow) {
+            tideInfo += `Last <strong>low</strong> tide was at <span class="tide-time">${formatTime(lastLow.t)}</span> (${lastLow.v.toFixed(1)} ft);<br>`;
+        }
+
+        for (const tide of nextTides) {
+            tideInfo += `Next <strong>${tide.type === 'H' ? 'high' : 'low'}</strong> tide is at <span class="tide-time">${formatTime(tide.t)}</span> (${tide.v.toFixed(1)} ft);<br>`;
+        }
+
+        document.getElementById('tideInfo').innerHTML = tideInfo;
+        document.getElementById('tideLastUpdated').textContent =
+            `Last updated: ${formatTime(new Date())}`;
+
+    } catch (error) {
+        document.getElementById('tideInfo').innerHTML =
+            `<div class="error">Error loading tide data: ${error.message}</div>`;
+        console.error('Error fetching tide data:', error);
+    }
+}
+        
         async function updateAllData() {
             // Fetch both wind and tide data
             await Promise.all([
